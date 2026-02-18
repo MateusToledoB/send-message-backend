@@ -1,0 +1,54 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: send-message-rabbitmq
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: unless-stopped
+    networks:
+      - send_message_network
+
+  postgres:
+    image: postgres:16
+    container_name: send-message-postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${PORT_HOST_POSTGRE:-5432}:${PORT_CONTAINER_POSTGRE:-5432}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - send_message_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: send-message-backend
+    env_file:
+      - .env
+    depends_on:
+      - rabbitmq
+      - postgres
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    networks:
+      - send_message_network
+
+volumes:
+  postgres_data:
+
+networks:
+  send_message_network:
+    external: true
