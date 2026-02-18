@@ -4,13 +4,16 @@ from typing import Union
 
 import pandas as pd
 from fastapi import HTTPException, UploadFile
+from starlette.datastructures import UploadFile as StarletteUploadFile
 from app.core.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 async def xlsx_to_dataframe(file: Union[UploadFile, bytes, str, Path]) -> pd.DataFrame:
-    if isinstance(file, UploadFile):
+    if isinstance(file, (UploadFile, StarletteUploadFile)) or (
+        hasattr(file, "read") and hasattr(file, "filename")
+    ):
         filename = (file.filename or "").lower()
         if not filename.endswith(".xlsx"):
             raise HTTPException(status_code=400, detail="Arquivo deve ser .xlsx")

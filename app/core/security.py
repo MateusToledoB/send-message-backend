@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -13,8 +13,9 @@ from app.infra.db.models import User
 
 logger = get_logger(__name__)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/token")
+# New passwords use bcrypt_sha256 (supports long passwords), while bcrypt is kept for compatibility.
+pwd_context = CryptContext(schemes=["bcrypt_sha256", "bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/token", auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -37,7 +38,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    bearer_token: str | None = Depends(oauth2_scheme),
+    cookie_token: str | None = Cookie(default=None, alias=settings.JWT_COOKIE_NAME),
+    cookie_token_legacy: str | None = Cookie(default=None, alias="access_token"),
+    cookie_token_typo: str | None = Cookie(default=None, alias="token_acess"),
     session: Session = Depends(db_client.get_session),
 ) -> User:
     credentials_exception = HTTPException(
@@ -45,6 +49,11 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    token = bearer_token or cookie_token or cookie_token_legacy or cookie_token_typo
+    if not token:
+        raise credentials_exception
+
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         user_id = payload.get("sub")
