@@ -23,7 +23,8 @@ RUN pip install --no-cache-dir \
     sqlalchemy \
     uvicorn \
     psycopg2-binary \
-    aio-pika
+    aio-pika \
+    httpx
 
 COPY . .
 
