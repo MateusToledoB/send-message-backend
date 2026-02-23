@@ -17,7 +17,6 @@ class User(Base):
     password = Column(String, nullable=False)
     setor = Column(String, nullable=False)
 
-
 class MessageRequest(Base):
     __tablename__ = "message_requests"
 
@@ -25,5 +24,6 @@ class MessageRequest(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     published_messages = Column(Integer, nullable=False)
+    send_messages = Column(Integer, nullable=False)
     status = Column(String, nullable=False)
     template_type = Column(String, nullable=False)

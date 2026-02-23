@@ -9,7 +9,7 @@ logger = get_logger(__name__)
 
 
 class MetaRequestService:
-    async def send_template_message(self, payload: dict[str, Any]) -> None:
+    async def send_template_message(self, payload: dict[str, Any]) -> dict[str, Any]:
         if not settings.WHATSAPP_TOKEN:
             raise ValueError("Configuracao da Meta incompleta. Defina WHATSAPP_TOKEN.")
 
@@ -40,6 +40,10 @@ class MetaRequestService:
                 settings.META_MESSAGES_URL, headers=headers, json=request_body
             )
             response.raise_for_status()
+            try:
+                return response.json()
+            except ValueError:
+                return {}
 
     def _build_components(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
         # Mantem o formato generico: qualquer campo (exceto metadados)

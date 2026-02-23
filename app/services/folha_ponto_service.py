@@ -23,6 +23,17 @@ class FolhaPontoService:
         user_id: int,
         template_type: str,
     ):
+        request = MessageRequest(
+            user_id=user_id,
+            published_messages=0,
+            send_messages=0,
+            status="requested",
+            template_type=template_type,
+        )
+        self.session.add(request)
+        self.session.commit()
+        self.session.refresh(request)
+
         df = await xlsx_to_dataframe(file)
         published = 0
 
@@ -33,31 +44,22 @@ class FolhaPontoService:
                 "whatsapp_number": str(row[column_contact]),
                 "user_id": user_id,
                 "template_type": template_type,
+                "message_request_id": request.id,
             }
-            await self.rabbitmq_client.publish(settings.RABBITMQ_QUEUE_FOLHA_PONTO, payload)
+            await self.rabbitmq_client.publish(settings.RABBITMQ_QUEUE_FOLHA_PONTO_ATIVOS, payload)
             published += 1
 
-        if published > 0:
-            request = MessageRequest(
-                user_id=user_id,
-                published_messages=published,
-                status="published",
-                template_type=template_type,
-            )
-            self.session.add(request)
-            self.session.commit()
-            self.session.refresh(request)
-            return {
-                "message_request_id": request.id,
-                "published_messages": published,
-                "status": request.status,
-                "template_type": request.template_type,
-                "created_at": request.created_at,
-            }
+        request.published_messages = published
+        if published == 0:
+            request.status = "finish"
+        self.session.commit()
+        self.session.refresh(request)
 
         return {
-            "message_request_id": None,
-            "published_messages": 0,
-            "status": "empty",
-            "created_at": None,
+            "message_request_id": request.id,
+            "published_messages": request.published_messages,
+            "send_messages": request.send_messages,
+            "status": request.status,
+            "template_type": request.template_type,
+            "created_at": request.created_at,
         }

@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 # New passwords use bcrypt_sha256 (supports long passwords), while bcrypt is kept for compatibility.
 pwd_context = CryptContext(schemes=["bcrypt_sha256", "bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/token", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/authenticate", auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
