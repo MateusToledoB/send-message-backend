@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Cookie, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Cookie, Depends, HTTPException, Request, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -15,7 +14,6 @@ logger = get_logger(__name__)
 
 # New passwords use bcrypt_sha256 (supports long passwords), while bcrypt is kept for compatibility.
 pwd_context = CryptContext(schemes=["bcrypt_sha256", "bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/authenticate", auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -38,10 +36,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 
 def get_current_user(
-    bearer_token: str | None = Depends(oauth2_scheme),
+    request: Request,
     cookie_token: str | None = Cookie(default=None, alias=settings.JWT_COOKIE_NAME),
-    cookie_token_legacy: str | None = Cookie(default=None, alias="access_token"),
-    cookie_token_typo: str | None = Cookie(default=None, alias="token_acess"),
+    csrf_cookie: str | None = Cookie(default=None, alias=settings.JWT_CSRF_COOKIE_NAME),
     session: Session = Depends(db_client.get_session),
 ) -> User:
     credentials_exception = HTTPException(
@@ -50,9 +47,17 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    token = bearer_token or cookie_token or cookie_token_legacy or cookie_token_typo
+    token = cookie_token
     if not token:
         raise credentials_exception
+
+    if request.method.upper() not in {"GET", "HEAD", "OPTIONS"}:
+        csrf_header = request.headers.get(settings.JWT_CSRF_HEADER_NAME)
+        if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="CSRF token invalid or missing",
+            )
 
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])

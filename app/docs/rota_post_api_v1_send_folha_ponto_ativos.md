@@ -3,7 +3,7 @@
 ## Identificacao da Rota
 - Metodo: `POST`
 - Caminho: `/api/v1/send_folha_ponto_ativos`
-- Modulo: `app/api/v1/endpoints/send_folha_ponto.py`
+- Modulo: `app/api/v1/endpoints/send_folha_ponto_ativos.py`
 - Funcao: `send_folha_ponto_ativos`
 - Tipo de handler: assincrono (`async def`)
 
@@ -24,8 +24,8 @@
   - Sessao SQLAlchemy aberta por request e fechada no final.
 
 ## Cadeia de Componentes Executada
-- Endpoint -> `FolhaPontoService(session)`
-- `FolhaPontoService.loop_folha_ponto(...)`
+- Endpoint -> `FolhaPontoAtivosService(session)`
+- `FolhaPontoAtivosService.loop_folha_ponto_ativos(...)`
 - Criacao inicial de `MessageRequest` com `status="requested"`
 - `xlsx_to_dataframe(file)`
 - Loop de linhas -> `RabbitMQ.publish(settings.RABBITMQ_QUEUE_FOLHA_PONTO_ATIVOS, payload)`
@@ -48,7 +48,7 @@ Transformar cada linha da planilha em payload e publicar na fila para envio post
 4. Decodifica JWT com `JWT_SECRET_KEY` e `JWT_ALGORITHM`.
 5. Le `sub` do token e carrega `User` na sessao.
 6. FastAPI resolve `session` via `db_client.get_session`.
-7. Endpoint instancia `FolhaPontoService` com a sessao.
+7. Endpoint instancia `FolhaPontoAtivosService` com a sessao.
 8. Servico chama `xlsx_to_dataframe(file)`.
 9. `xlsx_to_dataframe` valida extensao `.xlsx` e le arquivo via `pandas.read_excel`/`openpyxl`.
 10. Antes do processamento da planilha, servico cria `MessageRequest` com:

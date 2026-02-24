@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 import aio_pika
+from sqlalchemy import update
 
 from app.core.logger import get_logger, setup_logging
 from app.core.settings import settings
@@ -20,6 +21,8 @@ class MetaQueueWorker:
     def __init__(self):
         self.rabbitmq_client = RabbitMQ()
         self.meta_request_service = MetaRequestService()
+        self._delivered_counter_by_request: dict[int, int] = {}
+        self._request_locks: dict[int, asyncio.Lock] = {}
         self.queue_handlers: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
             settings.RABBITMQ_QUEUE_FOLHA_PONTO_ATIVOS: self._build_folha_ponto_ativos_meta_payload,
             settings.RABBITMQ_QUEUE_FOLHA_PONTO_INATIVOS: self._build_folha_ponto_inativos_meta_payload,
@@ -51,7 +54,7 @@ class MetaQueueWorker:
             meta_payload = self._build_meta_payload(queue_name, payload)
             meta_response = await self.meta_request_service.send_template_message(meta_payload)
             self._assert_meta_delivery_success(meta_response)
-            self._register_delivery_success(payload)
+            await self._register_delivery_success(payload)
             await message.ack()
             logger.info(
                 "Mensagem enviada para Meta com sucesso. fila=%s template=%s user_id=%s",
@@ -82,29 +85,51 @@ class MetaQueueWorker:
         if not isinstance(messages, list) or not messages:
             raise ValueError("Retorno da Meta sem confirmacao de mensagem enviada.")
 
-    def _register_delivery_success(self, payload: dict[str, Any]) -> None:
+    async def _register_delivery_success(self, payload: dict[str, Any]) -> None:
         message_request_id = payload.get("message_request_id")
         if message_request_id is None:
             logger.warning("Payload sem message_request_id; contabilizacao ignorada.")
             return
 
-        session = db_client.SessionLocal()
-        try:
-            request = session.get(MessageRequest, int(message_request_id))
-            if request is None:
-                logger.warning(
-                    "MessageRequest nao encontrado para id=%s; contabilizacao ignorada.",
-                    message_request_id,
+        request_id = int(message_request_id)
+        lock = self._request_locks.setdefault(request_id, asyncio.Lock())
+        async with lock:
+            sent_messages = self._delivered_counter_by_request.get(request_id, 0) + 1
+            self._delivered_counter_by_request[request_id] = sent_messages
+
+            session = db_client.SessionLocal()
+            try:
+                request = session.get(MessageRequest, request_id)
+                if request is None:
+                    logger.warning(
+                        "MessageRequest nao encontrado para id=%s; contabilizacao ignorada.",
+                        request_id,
+                    )
+                    self._delivered_counter_by_request.pop(request_id, None)
+                    self._request_locks.pop(request_id, None)
+                    return
+
+                if request.published_messages <= 0:
+                    return
+
+                if sent_messages < request.published_messages:
+                    return
+
+                session.execute(
+                    update(MessageRequest)
+                    .where(MessageRequest.id == request_id)
+                    .values(send_messages=sent_messages, status="finish")
                 )
-                return
-
-            request.send_messages += 1
-            if request.published_messages > 0 and request.send_messages >= request.published_messages:
-                request.status = "finish"
-
-            session.commit()
-        finally:
-            session.close()
+                session.commit()
+                self._delivered_counter_by_request.pop(request_id, None)
+                self._request_locks.pop(request_id, None)
+                logger.info(
+                    "Fluxo finalizado com sucesso. message_request_id=%s send_messages=%s status=finish",
+                    request_id,
+                    sent_messages,
+                )
+            finally:
+                session.close()
 
     def _build_folha_ponto_ativos_meta_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._build_folha_ponto_meta_payload(payload, template_name="folha_ponto_ativo")

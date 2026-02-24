@@ -13,6 +13,10 @@ class RabbitMQ:
 
     async def connect(self):
         if not self.connection or self.connection.is_closed:
+            if settings.RABBITMQ_URL.startswith(("http://", "https://")):
+                raise ValueError(
+                    "RABBITMQ_URL invalida para AMQP. Use amqp:// ou amqps:// (nao use http/https)."
+                )
             self.connection = await aio_pika.connect_robust(settings.RABBITMQ_URL)
             self.channel = await self.connection.channel()
             self.exchange = await self.channel.declare_exchange(

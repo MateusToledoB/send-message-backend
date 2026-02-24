@@ -9,12 +9,12 @@ from app.utils.file_utils import xlsx_to_dataframe
 logger = get_logger(__name__)
 
 
-class FolhaPontoService:
+class FolhaPontoAtivosService:
     def __init__(self, session: Session):
         self.session = session
         self.rabbitmq_client = RabbitMQ()
 
-    async def loop_folha_ponto(
+    async def loop_folha_ponto_ativos(
         self,
         file,
         column_name: str,

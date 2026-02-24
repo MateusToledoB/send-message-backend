@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
 from app.core.logger import get_logger
@@ -19,6 +19,25 @@ class DbClient:
 
     def create_tables(self):
         Base.metadata.create_all(bind=self.engine)
+        self.ensure_message_requests_columns()
+
+    def ensure_message_requests_columns(self):
+        inspector = inspect(self.engine)
+        if "message_requests" not in inspector.get_table_names():
+            return
+
+        existing_columns = {col["name"] for col in inspector.get_columns("message_requests")}
+        if "send_messages" in existing_columns:
+            return
+
+        # Backward-compatible migration for existing databases.
+        with self.engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE message_requests "
+                    "ADD COLUMN send_messages INTEGER NOT NULL DEFAULT 0"
+                )
+            )
 
     def get_session(self):
         session = self.SessionLocal()

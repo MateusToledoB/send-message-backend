@@ -13,3 +13,4 @@ class UserRepository:
     
     def get_user_by_name(self, name: str):
         return self.session.query(User).filter(User.name == name).first()
+    

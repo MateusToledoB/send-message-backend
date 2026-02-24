@@ -21,7 +21,6 @@ class Settings(BaseSettings):
     RABBITMQ_QUEUE_FOLHA_PONTO_ATIVOS_TORRE: str
     RABBITMQ_QUEUE_VAGAS: str
     RABBITMQ_QUEUE_FOLHA_PONTO_BACKUP: str = "folha_ponto_backup_queue"
-    RABBITMQ_WORKER_QUEUE: str = "folha_ponto_queue"
 
     JWT_SECRET_KEY: str = "change-this-secret-in-env"
     JWT_ALGORITHM: str = "HS256"
@@ -30,6 +29,8 @@ class Settings(BaseSettings):
     JWT_COOKIE_SECURE: bool = False
     JWT_COOKIE_SAMESITE: str = "lax"
     JWT_COOKIE_PATH: str = "/"
+    JWT_CSRF_COOKIE_NAME: str = "csrf_token"
+    JWT_CSRF_HEADER_NAME: str = "X-CSRF-Token"
     CORS_ALLOW_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
 
     # Meta WhatsApp API
