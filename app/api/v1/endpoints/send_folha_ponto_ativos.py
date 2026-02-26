@@ -15,7 +15,6 @@ router = APIRouter()
 @router.post("/send_folha_ponto_ativos", status_code=status.HTTP_200_OK)
 async def send_folha_ponto_ativos(
     payload: FolhaPontoUploadRequest = Depends(FolhaPontoUploadRequest.as_form),
-    current_user: User = Depends(get_current_user),
     session: Session = Depends(db_client.get_session),
 ):
     service = FolhaPontoAtivosService(session=session)
@@ -24,6 +23,6 @@ async def send_folha_ponto_ativos(
         column_name=payload.column_name,
         column_month=payload.column_month,
         column_contact=payload.column_contact,
-        user_id=current_user.id,
+        user_id=1,
         template_type=payload.template_type,
     )

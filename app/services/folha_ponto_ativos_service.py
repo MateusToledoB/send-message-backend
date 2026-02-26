@@ -50,8 +50,7 @@ class FolhaPontoAtivosService:
             published += 1
 
         request.published_messages = published
-        if published == 0:
-            request.status = "finish"
+        request.status = "finish"
         self.session.commit()
         self.session.refresh(request)
 
