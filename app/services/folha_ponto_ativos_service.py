@@ -10,6 +10,7 @@ logger = get_logger(__name__)
 
 
 class FolhaPontoAtivosService:
+    # Ao criar o objeto 
     def __init__(self, session: Session):
         self.session = session
         self.rabbitmq_client = RabbitMQ()
@@ -50,14 +51,13 @@ class FolhaPontoAtivosService:
             published += 1
 
         request.published_messages = published
-        request.status = "finish"
+        request.status = "requested"
         self.session.commit()
         self.session.refresh(request)
 
         return {
             "message_request_id": request.id,
             "published_messages": request.published_messages,
-            "send_messages": request.send_messages,
             "status": request.status,
             "template_type": request.template_type,
             "created_at": request.created_at,

@@ -53,6 +53,7 @@ class MetaQueueWorker:
             payload = json.loads(message.body.decode())
             meta_payload = self._build_meta_payload(queue_name, payload)
             meta_response = await self.meta_request_service.send_template_message(meta_payload)
+            print("Meta API response:", json.dumps(meta_response, ensure_ascii=False))
             self._assert_meta_delivery_success(meta_response)
             await self._register_delivery_success(payload)
             await message.ack()

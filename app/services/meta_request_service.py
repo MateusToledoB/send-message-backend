@@ -1,4 +1,5 @@
 from typing import Any
+import re
 
 import httpx
 
@@ -13,7 +14,7 @@ class MetaRequestService:
         if not settings.WHATSAPP_TOKEN:
             raise ValueError("Configuracao da Meta incompleta. Defina WHATSAPP_TOKEN.")
 
-        whatsapp_number = payload["whatsapp_number"]
+        whatsapp_number = self._normalize_whatsapp_number(payload["whatsapp_number"])
         template_name = payload.get("template_name") or payload.get("template_type")
         if not template_name:
             raise ValueError("Payload sem template_name/template_type.")
@@ -44,6 +45,25 @@ class MetaRequestService:
                 return response.json()
             except ValueError:
                 return {}
+
+    def _normalize_whatsapp_number(self, value: Any) -> str:
+        raw_value = str(value).strip()
+        if not raw_value or raw_value.lower() == "nan":
+            raise ValueError("whatsapp_number invalido no payload.")
+
+        # Corrige numeros lidos do Excel como float, ex: 41998233073.0
+        if re.fullmatch(r"\d+\.0+", raw_value):
+            raw_value = raw_value.split(".", 1)[0]
+
+        digits = "".join(char for char in raw_value if char.isdigit())
+        if not digits:
+            raise ValueError("whatsapp_number invalido no payload.")
+
+        # Evita duplicar DDI no envio (request_body ja prefixa com 55)
+        if digits.startswith("55") and len(digits) > 11:
+            digits = digits[2:]
+
+        return digits
 
     def _build_components(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
         # Mantem o formato generico: qualquer campo (exceto metadados)
